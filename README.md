@@ -23,7 +23,7 @@ The report can be integrated into the Testing or Simulation Pipleline with the H
 
 After warm up and execution of two version of rules, you will get a  HTML report like below.
 
-![An example report](https://github.com/okuniyas/rules-execution-analysis/images/activation_report.png)
+![An example report](https://github.com/okuniyas/rules-execution-analysis/blob/images/activation_report.png)
 
 This is the part of the Activation differences. By some tuning of rules, most of the useless activations were removed. In the Activation part, you can see ...
 
