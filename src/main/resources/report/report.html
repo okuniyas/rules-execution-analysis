@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+<title>Rules Execution Comparison Report</title>
+<link rel="stylesheet" type="text/css" href="lib/diff2html/diff2html.css">
+<script type="text/javascript" src="lib/diff2html/diff2html.js"></script>
+<script type="text/javascript" src="lib/jquery/jquery-1.11.2.js"></script>
+<script type="text/javascript" src="lib/d3/d3.js"></script>
+<script type="text/javascript" src="lib/d3/d3.layout.js"></script>
+<script type="text/javascript" src="lib/mark/jquery.mark.js"></script>
+<style type="text/css">
+ body {
+     font-size: 12px;
+     font-family: Sans-Serif;
+ }
+ h2 {
+     margin: 0.5em 0 0.1em;
+     text-align: center;
+ }
+ .top_title {
+     text-align: center;
+     font-size: 14px;
+     font-weight: bold;
+     margin: 0;
+ }
+ .top {
+     text-align: center;
+     font-size: 12px;
+ }
+ #stats {
+     text-align: center;
+     font-size: 12px;
+ }
+ .textInput {
+     display: block;
+     width: 49%;
+     float: left;
+ }
+ textarea {
+     width:100%;
+     height:300px;
+ }
+ label:hover {
+     text-decoration: underline;
+     cursor: pointer;
+ }
+ .spacer {
+     margin-left: 10px;
+ }
+ .viewType {
+     font-size: 14px;
+     clear: both;
+     text-align: center;
+     padding-top: 1em;
+ }
+ #diffoutput {
+     width: 100%;
+ }
+
+ #comparisonText {
+     font-size: 14px;
+     border: 1px solid #ddd;
+     border-radius: 3px;
+     margin: auto;
+     margin-top: 0px;
+ }
+
+ .chart {
+     display: block;
+     margin: auto;
+     margin-top: 0px;
+     font-size: 11px;
+ }
+
+ rect {
+     stroke: #eee;
+     fill: #aaa;
+     //fill-opacity: .95;
+ }
+
+ rect.parent {
+     cursor: pointer;
+     fill: skyblue;
+ }
+
+ rect.canceled {
+     cursor: pointer;
+     fill: orange;
+ }
+
+ text {
+     pointer-events: none;
+ }
+
+</style>
+
+<script type="text/javascript">
+
+ var statsId = "";
+ var reportId = "";
+ var baseRulesFile = "";
+ var workingRulesFile = "";
+ var comparisonJsonFile = "";
+ var diffFile = "";
+
+ var reportStyleId = "";
+
+ function setStats(stats) {
+     statsId = stats;
+     document.getElementById(stats).checked = true;
+     setReport();
+ }
+ 
+ function setReport() {
+     reportId = document.getElementById('report').value;
+     if (reportId == "rule_runtime_stats") {
+	 baseRulesFile = statsId + "_" + reportId + "_base_rules.json";
+	 workingRulesFile = statsId + "_" + reportId + "_working_rules.json";
+	 comparisonJsonFile = statsId + "_" + reportId + "_comparison.json";
+	 diffFile = statsId + "_" + reportId + ".diff";
+	 
+	 $('#stats').css('visibility', 'visible');
+     } else { // reportId == "result_facts"
+	 baseRulesFile = reportId + "_base_rules.json";
+	 workingRulesFile = reportId + "_working_rules.json";
+	 comparisonJsonFile = reportId + "_comparison.json";
+	 diffFile = reportId + ".diff";
+
+	 $('#stats').css('visibility', 'hidden');
+     }
+
+     if (reportId == "rule_runtime_stats") {
+	 loadComparison(true);
+     } else {
+	 loadComparison(false);
+     }
+
+     setReportStyle(true);
+ }
+
+ function setReportStyle(initReport) {
+     var reportStyleSlct = document.getElementById('reportStyle');
+     // set initial setting
+     if (initReport) {
+	 if (reportId == "result_facts") {
+	     // force text report for result facts
+	     reportStyleSlct.value = "text";
+	 } else { // reportId == "rule_runtime_stats"
+	     $.ajax({
+		 url : baseRulesFile,
+		 async: false,
+		 cache: false,
+		 dataType: "text",
+		 success : function(data) {
+		     var statsJson = $.parseJSON(data);
+		     if (statsJson.name == "ACTIVATION" || statsJson.name == "EXECUTION_COUNT") {
+			 // force graphic report
+			 reportStyleSlct.value = "graphics";
+		     } else {
+			 // force text report for other stats
+			 reportStyleSlct.value = "text";
+		     }
+		 }
+	     });
+	 }
+     }
+
+     reportStyleId = reportStyleSlct.value;
+
+     $('#baseReport').empty();
+     $('#workingReport').empty();
+
+     if (reportStyleId == "text") {
+	 $('#baseReport').append('<textarea id="baseText"/>');
+	 $('#workingReport').append('<textarea id="newText"/>');
+	 
+	 $("#baseText").load(baseRulesFile);
+	 $("#newText").load(workingRulesFile);
+     } else {
+	 showReportGraphical('baseReport', 'base');
+	 showReportGraphical('workingReport', 'working');
+     }
+ }
+
+ function loadComparison(marked) {
+     $("#diffoutput").empty();
+     $("#diffoutput").append('<pre id="comparisonText"></pre>');
+     $("#comparisonText").load(comparisonJsonFile, function(data) {
+	 if (marked) {
+	     $("#comparisonText").markRegExp(/"! .* -> .*"/gim);
+	 }
+     });
+     var comparisonBtn = document.getElementById(marked ? 'comparison-marked' : 'comparison');
+     comparisonBtn.checked = true;
+ }
+
+ function diffUsingJS(viewType) {
+     var diffTarget = document.getElementById("diffoutput");
+     diffTarget.innerHTML = "";
+     $.ajax({
+	 url : diffFile,
+	 async: false,
+	 cache: false,
+	 dataType: "text",
+	 success : function(data) {
+	     var jsonContent = Diff2Html.getJsonFromDiff(data, {inputFormat : 'diff'});
+	     var htmlContent = Diff2Html.getPrettyHtml(jsonContent, {
+		 inputFormat: 'json',
+		 showFiles: false,
+		 matching: 'lines',
+		 outputFormat: viewType
+	     });
+	     diffTarget.innerHTML = htmlContent;
+	 }
+     });
+ }
+
+ function showReportGraphical(targetId, baseOrWorking) {
+     var w = document.getElementById(targetId).offsetWidth,
+	 h = 300,
+	 x = d3.scale.linear().range([0, w]),
+	 y = d3.scale.linear().range([0, h]);
+
+     var vis = d3.select("#" + targetId).append("div")
+		 .attr("class", "chart")
+		 .style("width", w + "px")
+		 .style("height", h + "px")
+		 .append("svg:svg")
+		 .attr("width", w)
+		 .attr("height", h);
+     
+     var partition = d3.layout.partition()
+		       .value(function(d) { return d.size; });
+
+     var jsonData = baseOrWorking == "base" ? baseRulesFile : workingRulesFile;
+     
+     d3.json(jsonData, function(root) {
+	 var g = vis.selectAll("g")
+		    .data(partition.nodes(root))
+		    .enter().append("svg:g")
+		    .attr("transform", function(d) { return "translate(" + x(d.y) + "," + y(d.x) + ")"; })
+		    .on("click", click);
+	 
+	 var kx = w / root.dx,
+	     ky = h / 1;
+	 
+	 g.append("svg:rect")
+	  .attr("width", root.dy * kx)
+	  .attr("height", function(d) { return d.dx * ky; })
+	  .attr("class", function(d) { return (d.children) ? (d.name == "Canceled") ? "canceled" : "parent" : "child"; })
+	  .append("svg:title").text(function(d) { return (d.name ? d.name : "" ) +
+							 (d.size ?  (", SIZE:" + d.size.toLocaleString("en")) : ""); });
+	 
+	 g.append("svg:text")
+	  .attr("transform", transform)
+	  .attr("dy", ".15em")
+	  .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; })
+	  .text(function(d) { return d.name ? d.name.substring(0, d.name.indexOf(')')+1) : ""; });
+
+	 g.append("svg:text")
+	  .attr("transform", transform)
+	  .attr("dy", "1.30em")
+	  .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; })
+	  .text(function(d) { return d.name ? d.name.substring(d.name.indexOf(')')+1) : ""; });
+
+	 g.append("svg:text")
+	  .attr("transform", transform)
+	  .attr("dy", "2.60em")
+	  .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; })
+	  .text(function(d) { return ( d.size ?  ("size:" + d.size.toLocaleString("en")) : ""); });
+	 
+	 d3.select("#" + targetId)
+	   .on("click", function() { click(root); })
+	 
+	 function click(d) {
+	     if (!d.children) return;
+	     
+	     kx = (d.y ? w - 40 : w) / (1 - d.y);
+	     ky = h / d.dx;
+	     x.domain([d.y, 1]).range([d.y ? 40 : 0, w]);
+	     y.domain([d.x, d.x + d.dx]);
+	     
+	     var t = g.transition()
+		      .duration(d3.event.altKey ? 7500 : 750)
+		      .attr("transform", function(d) { return "translate(" + x(d.y) + "," + y(d.x) + ")"; });
+	     
+	     t.select("rect")
+              .attr("width", d.dy * kx)
+              .attr("height", function(d) { return d.dx * ky; });
+	     
+	     t.selectAll("text")
+              .attr("transform", transform)
+              .style("opacity", function(d) { return d.dx * ky > 12 ? 1 : 0; });
+
+	     d3.event.stopPropagation();
+	 }
+	 
+	 function transform(d) {
+	     return "translate(8," + (d.dx * ky / 2) + ")";
+	 }
+
+     });
+
+ }
+
+ function UrlExists(url) {
+     var ret = true;
+     $.ajax({
+	 url: url,
+	 type: 'HEAD',
+	 async: false,
+	 error: function()
+	 {
+             ret = false;
+	 },
+	 success: function()
+	 {
+	     ret = true;
+	 }
+     });
+     return ret;
+ }
+ 
+ $(document).ready(function() {
+     var statsDecided = false;
+     var fn = '_rule_runtime_stats_base_rules.json';
+     $.ajaxSetup({ mimeType: "text/plain" });
+     if (UrlExists('execution_count' + fn)) {
+	 document.getElementById('execution_count').disabled = false;
+	 setStats('execution_count');
+	 statsDecided = true;
+     } else {
+	 document.getElementById('execution_count').disabled = true;
+     }
+     if (UrlExists('activation' + fn)) {
+	 document.getElementById('activation').disabled = false;
+	 if (!statsDecided) {
+	     setStats('activation');
+	     statsDecided = true;
+	 }
+     } else {
+	 document.getElementById('activation').disabled = true;
+     }
+     if (UrlExists('execution_sequence' + fn)) {
+	 document.getElementById('execution_sequence').disabled = false;
+	 if (!statsDecided) {
+	     setStats('execution_sequence');
+	     statsDecided = true;
+	 }
+     } else {
+	 document.getElementById('execution_sequence').disabled = true;
+     }
+     if (UrlExists('noop' + fn)) {
+	 document.getElementById('noop').disabled = false;
+	 if (!statsDecided) {
+	     setStats('noop');
+	     statsDecided = true;
+	 }
+     } else {
+	 document.getElementById('noop').disabled = true;
+     }
+ })
+
+</script>
+</head>
+<body>
+    <p>
+	<div class="top_title">
+	    Rules Execution Comparison Report
+	    <!--
+		 powered by
+		 <a href="https://d3js.org/">D3.js</a>,
+		 <a href="https://diff2html.xyz/">diff2html</a>,
+		 <a href="https://markjs.io/">mark.js</a>
+		 and
+		 <a href="https://jquery.com/">jQuery</a>.
+	       -->
+	</div>
+	<div class="top">
+	    <label for="report">Report：</label>
+	    <select id="report" name="report" onChange="setReport()">
+		<option value="rule_runtime_stats">rule-runtime-stats</option>
+		<option value="result_facts">result-facts-inserted</option>
+	    </select>
+	</div>
+	<div id="stats">
+	    <label>Stats：</label>
+	    <input type="radio" name="_stats" id="execution_count" onclick="setStats('execution_count');" />
+	    <label for="execution_count">Execution-Count</label>
+	    &nbsp; &nbsp;
+	    <input type="radio" name="_stats" id="activation" onclick="setStats('activation');" />
+	    <label for="activation">Activation</label>
+	    &nbsp; &nbsp;
+	    <input type="radio" name="_stats" id="execution_sequence" onclick="setStats('execution_sequence');" />
+	    <label for="execution_sequence">Execution-Sequence</label>
+	    &nbsp; &nbsp;
+	    <input type="radio" name="_stats" id="noop" onclick="setStats('noop');" />
+	    <label for="noop">Elapsed-Time</label>
+	    
+	    <div>
+		<label for="reportStyle">Report Style：</label>
+		<select id="reportStyle" name="reportStyle" onChange="setReportStyle(false)">
+		    <option value="text">text</option>
+		    <option value="graphics">graphics</option>
+		</select>
+	    </div>
+	</div>
+    <div class="textInput">
+	<h2>Base Rules</h2>
+	<div id="baseReport"> </div>
+    </div>
+    <div class="textInput spacer">
+	<h2>Working Rules</h2>
+	<div id="workingReport"> </div>
+    </div>
+    <div class="viewType">
+	<b>Text Diff:</b>
+	<input type="radio" name="_viewtype" id="comparison" onclick="loadComparison(false);" /> <label for="comparison">compact</label>
+	&nbsp; &nbsp;
+	<input type="radio" name="_viewtype" id="comparison-marked" onclick="loadComparison(true);" /> <label for="comparison-marked">compact-marked</label>
+	&nbsp; &nbsp;
+	<input type="radio" name="_viewtype" id="sidebyside" onclick="diffUsingJS('side-by-side');" /> <label for="sidebyside">side-by-side</label>
+	&nbsp; &nbsp;
+	<input type="radio" name="_viewtype" id="inline" onclick="diffUsingJS('line-by-line');" /> <label for="inline">inline</label>
+    </div>
+    <div id="diffoutput"> </div>
+</body>
+</html>

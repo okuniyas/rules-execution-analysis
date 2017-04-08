@@ -1,0 +1,43 @@
+package com.redhat.example.rules
+
+import com.redhat.example.rules.fact.Message;
+
+rule "Make a Set"
+	ruleflow-group "Main"
+	when
+		$hello: Message( status == Message.HELLO )
+		$goodbye: Message( status == Message.GOODBYE )
+	then
+//        System.out.println( "Retract: " + $hello.getMessage() );
+//        System.out.println( "Retract: " + $goodbye.getMessage() );
+		retract($hello);
+		retract($goodbye);
+end
+
+rule "Hello World"
+	ruleflow-group "Main"
+    when
+        m : Message( status == Message.HELLO, myMessage : message )
+    then
+//        System.out.println( myMessage );
+        m.setMessage( "Goodbye cruel world" );
+        m.setStatus( Message.GOODBYE );
+        update( m );
+end
+
+rule "GoodBye"
+	salience 10
+	ruleflow-group "Main"
+    when
+        Message( status == Message.GOODBYE, myMessage : message )
+    then
+//        System.out.println( myMessage );
+end
+
+rule "DummyRule"
+	ruleflow-group "Main"
+	when
+		Message( status not in ( Message.HELLO, Message.GOODBYE ), myMessage : message )
+	then
+//		System.out.println( myMessage );
+end

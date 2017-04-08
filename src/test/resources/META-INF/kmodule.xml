@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kmodule xmlns="http://jboss.org/kie/6.0.0/kmodule">
+	<kbase name="rules" packages="rules" />
+	<kbase name="rules_with_accumulate" packages="rules_with_accumulate" />
+	<kbase name="rules_with_right_salience" packages="rules_with_right_salience" />
+	<kbase name="rules_with_accumulate_and_right_salience"
+		packages="rules_with_accumulate_and_right_salience" />
+</kmodule>
